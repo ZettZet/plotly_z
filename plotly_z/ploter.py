@@ -9,8 +9,8 @@ from plotly_z.enums import Reim
 
 def plot_z(
         fun: Callable[[ArrayLike], ArrayLike],
-        x_bound: tuple[int, int],
-        y_bound: tuple[int, int],
+        x_bound: tuple[int, int, int],
+        y_bound: tuple[int, int, int],
         *,
         n_steps: int = 100,
         reim: Reim = Reim.BOTH,
@@ -30,10 +30,15 @@ def plot_z(
     if fig is None:
         fig = go.Figure()
 
-    fig.update_xaxes(range=x_bound, showgrid=True, gridwidth=1, gridcolor='orange', zeroline=True, zerolinewidth=2,
-                     zerolinecolor='orange')
-    fig.update_yaxes(range=y_bound, showgrid=True, gridwidth=1, gridcolor='blue', zeroline=True, zerolinewidth=2,
-                     zerolinecolor='blue')
+    axes_config = {
+        'showgrid': True,
+        'gridwidth': 1,
+        'zeroline': True,
+        'zerolinewidth': 2,
+    }
+
+    fig.update_xaxes(**(axes_config | {'range': x_bound[:2], 'gridcolor': 'orange', 'zerolinecolor': 'orange'}))
+    fig.update_yaxes(**(axes_config | {'range': y_bound[:2], 'gridcolor': 'blue', 'zerolinecolor': 'blue'}))
 
     match reim:
         case Reim.IM:
@@ -47,11 +52,11 @@ def plot_z(
     return fig
 
 
-def __add_imag(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: tuple[int, int],
-               y_bound: tuple[int, int], n_steps: int) -> go.Figure:
-    x_l, x_r = x_bound
-    y_l, y_r = y_bound
-    real_fixed = np.arange(x_l, x_r + 1)
+def __add_imag(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: tuple[int, int, int],
+               y_bound: tuple[int, int, int], n_steps: int) -> go.Figure:
+    x_l, x_r, x_s = x_bound
+    y_l, y_r, _ = y_bound
+    real_fixed = np.arange(x_l, x_r + 1, x_s)
     imag = np.linspace(y_l, y_r, n_steps)
     parallel_to_imag = np.array([re + 1j * imag for re in real_fixed])
 
@@ -64,11 +69,11 @@ def __add_imag(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: t
     return fig
 
 
-def __add_real(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: tuple[int, int],
-               y_bound: tuple[int, int], n_steps: int) -> go.Figure:
-    x_l, x_r = x_bound
-    y_l, y_r = y_bound
-    imag_fixed = np.arange(y_l, y_r + 1)
+def __add_real(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: tuple[int, int, int],
+               y_bound: tuple[int, int, int], n_steps: int) -> go.Figure:
+    x_l, x_r, _ = x_bound
+    y_l, y_r, y_s = y_bound
+    imag_fixed = np.arange(y_l, y_r + 1, y_s)
     real = np.linspace(x_l, x_r, n_steps)
     parallel_to_real = np.array([real + 1j * im for im in imag_fixed])
 
@@ -82,8 +87,8 @@ def __add_real(fig: go.Figure, fun: Callable[[ArrayLike], ArrayLike], x_bound: t
     return fig
 
 
-def plot_complex_points(init_points: Iterator[complex], *, name: str, color: str = 'green',
-                               fig: Optional[go.Figure] = None) -> go.Figure:
+def plot_complex_points(init_points: Iterator[complex], *,
+                        fig: Optional[go.Figure] = None, **kwargs) -> go.Figure:
     """
     Plot complex points
     :param color:
@@ -95,6 +100,30 @@ def plot_complex_points(init_points: Iterator[complex], *, name: str, color: str
     if fig is None:
         fig = go.Figure()
 
-    fig.add_trace(go.Scatter(x=np.real(init_points), y=np.imag(init_points), name=name, line={'color': color}))
+    axes_config = {
+        'scaleanchor': 'x',
+        'scaleratio': 1,
+        'tick0': 0,
+        'dtick': 1,
+        'gridcolor': 'black',
+        'zerolinecolor': 'black',
+        'minor': {
+            'dtick': 0.1,
+            'gridcolor': 'gray',
+            'gridwidth': 0.1
+        }
+    }
+    if 'axes_config' in kwargs:
+        ac = kwargs.pop('axes_config')
+        for key, value in ac.items():
+            if isinstance(axes_config[key], dict):
+                axes_config[key] |= value
+            else:
+                axes_config[key] = value
+
+    fig.update_xaxes(**axes_config)
+    fig.update_yaxes(**axes_config)
+
+    fig.add_trace(go.Scatter(x=np.real(init_points), y=np.imag(init_points), **kwargs))
 
     return fig
